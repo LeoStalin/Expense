@@ -14,7 +14,19 @@
         .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(226, 232, 240, 1); }
         .sticky-bar { position: sticky; top: 0; z-index: 40; border-bottom: 1px solid #e2e8f0; }
         .chart-container { height: 350px; width: 100%; }
-        select { appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem !important; }
+        
+        /* Fixed Select Styling to prevent text splitting/clipping */
+        select { 
+            appearance: none; 
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); 
+            background-position: right 0.5rem center; 
+            background-repeat: no-repeat; 
+            background-size: 1.5em 1.5em; 
+            padding-right: 2.5rem !important;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         .loader { border-top-color: #6366f1; animation: spinner 0.8s linear infinite; }
         @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
@@ -28,8 +40,8 @@
                 <div class="bg-indigo-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                     <i data-lucide="wallet" class="text-white w-8 h-8"></i>
                 </div>
-                <h1 class="text-2xl font-bold">Expense Tracker</h1>
-                <p class="text-slate-500">Sign in to access live data</p>
+                <h1 class="text-2xl font-bold tracking-tight">Expense Tracker</h1>
+                <p class="text-slate-500">Sign in to access your live budget</p>
             </div>
             <form id="login-form" class="space-y-4">
                 <input type="text" id="username" value="admin" class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
@@ -42,7 +54,7 @@
     <!-- LOADING OVERLAY -->
     <div id="loading-overlay" class="hidden fixed inset-0 z-[60] flex flex-col items-center justify-center bg-white/80 backdrop-blur-md">
         <div class="loader ease-linear rounded-full border-4 border-t-4 border-slate-200 h-12 w-12 mb-4"></div>
-        <p class="text-indigo-600 font-bold animate-pulse">Syncing with Google Sheets...</p>
+        <p class="text-indigo-600 font-bold animate-pulse">Syncing Google Sheets Data...</p>
     </div>
 
     <!-- MAIN APP VIEW -->
@@ -93,11 +105,11 @@
                     </select>
                 </div>
 
-                <!-- Transaction -->
+                <!-- Transaction (Merchant) Filter -->
                 <div class="flex flex-col gap-1.5">
                     <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Transaction</label>
-                    <select id="f-trans" class="text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-indigo-500">
-                        <option value="All">All Transactions</option>
+                    <select id="f-trans" class="text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-indigo-500 overflow-hidden">
+                        <option value="All">All Merchants</option>
                     </select>
                 </div>
 
@@ -136,7 +148,7 @@
                     <h3 id="kpi-crd" class="text-2xl font-bold text-slate-900">AED 0.00</h3>
                 </div>
                 <div class="glass-card p-6 border-l-4 border-indigo-500 shadow-sm">
-                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Amount</p>
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Volume</p>
                     <h3 id="kpi-vol" class="text-2xl font-bold text-slate-900">AED 0.00</h3>
                 </div>
                 <div class="glass-card p-6 shadow-sm flex flex-col justify-center">
@@ -154,19 +166,19 @@
             <!-- VISUALIZATIONS -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div class="glass-card p-6">
-                    <h4 class="text-xs font-bold uppercase text-slate-500 mb-6">Expense By Category (Amount)</h4>
+                    <h4 class="text-xs font-bold uppercase text-slate-500 mb-6 tracking-widest">Expense By Category (AED)</h4>
                     <div id="chart-exp-amt" class="chart-container"></div>
                 </div>
                 <div class="glass-card p-6">
-                    <h4 class="text-xs font-bold uppercase text-slate-500 mb-6">Expense Contribution (%)</h4>
+                    <h4 class="text-xs font-bold uppercase text-slate-500 mb-6 tracking-widest">Expense Contribution (%)</h4>
                     <div id="chart-exp-pct" class="chart-container"></div>
                 </div>
                 <div class="glass-card p-6">
-                    <h4 class="text-xs font-bold uppercase text-slate-500 mb-6">Credit By Category (Amount)</h4>
+                    <h4 class="text-xs font-bold uppercase text-slate-500 mb-6 tracking-widest">Credit By Category (AED)</h4>
                     <div id="chart-crd-amt" class="chart-container"></div>
                 </div>
                 <div class="glass-card p-6">
-                    <h4 class="text-xs font-bold uppercase text-slate-500 mb-6">Credit Contribution (%)</h4>
+                    <h4 class="text-xs font-bold uppercase text-slate-500 mb-6 tracking-widest">Credit Contribution (%)</h4>
                     <div id="chart-crd-pct" class="chart-container"></div>
                 </div>
             </div>
@@ -220,11 +232,16 @@
         }
 
         function processCSV(csv) {
-            const lines = csv.split('\n').filter(l => l.trim() !== '');
+            const lines = csv.split(/\r?\n/).filter(l => l.trim() !== '');
             state.master = lines.slice(1).map(row => {
-                // regex for CSV columns that might contain commas inside quotes
-                const cols = row.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
-                const clean = (s) => s ? s.replace(/"/g, '').trim() : '';
+                /** 
+                 * Robust CSV split: 
+                 * Splits by comma only if NOT inside double quotes. 
+                 * This prevents Merchant names like "Careem Taxi" from splitting into two items.
+                 */
+                const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                
+                const clean = (s) => s ? s.replace(/^"|"$/g, '').trim() : '';
 
                 const dateStr = clean(cols[0]);
                 const dp = dateStr.split('/');
@@ -237,9 +254,9 @@
                     type: clean(cols[2]),
                     location: clean(cols[3]),
                     category: clean(cols[4]),
-                    amount: parseFloat(clean(cols[5])) || 0
+                    amount: parseFloat(clean(cols[5]).replace(/,/g, '')) || 0
                 };
-            }).filter(d => d.date !== "");
+            }).filter(d => d.date !== "" && !isNaN(d.amount));
 
             // Sort Master chronologically
             state.master.sort((a,b) => a.dateObj - b.dateObj);
@@ -257,6 +274,8 @@
 
         function populateFilters() {
             const dates = [...new Set(state.master.map(d => d.date))];
+            
+            // Fixed: unique transaction names stay complete (e.g. "Careem Taxi")
             const trans = [...new Set(state.master.map(d => d.transaction))].sort();
             const cats = [...new Set(state.master.map(d => d.category))].sort();
             const types = [...new Set(state.master.map(d => d.type))].sort();
@@ -274,7 +293,7 @@
             setup('f-single', dates, "All Dates");
             setup('f-from', dates, "Earliest");
             setup('f-to', [...dates].reverse(), "Latest");
-            setup('f-trans', trans, "All Transactions");
+            setup('f-trans', trans, "All Merchants");
             setup('f-cat', cats, "All Categories");
             setup('f-type', types, "All Types");
         }
@@ -365,7 +384,7 @@
 
             const option = (data, color, isPct, total) => ({
                 tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-                grid: { left: '3%', right: '18%', bottom: '3%', containLabel: true },
+                grid: { left: '3%', right: '22%', bottom: '3%', containLabel: true },
                 xAxis: { type: 'value', splitLine: { show: false }, axisLabel: { show: false } },
                 yAxis: { type: 'category', data: data.map(d => d.name), inverse: true, axisLine: { show: false } },
                 series: [{
