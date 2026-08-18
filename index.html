@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense Tracker | Live Analytics Dashboard</title>
+    <!-- Dependencies -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(226, 232, 240, 1); }
+        .sticky-bar { position: sticky; top: 0; z-index: 40; border-bottom: 1px solid #e2e8f0; }
+        .chart-container { height: 350px; width: 100%; }
+        select { appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem !important; }
+        .loader { border-top-color: #6366f1; animation: spinner 0.8s linear infinite; }
+        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="text-slate-900">
+
+    <!-- LOGIN PAGE -->
+    <div id="login-view" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900">
+        <div class="glass-card w-full max-w-md p-10 rounded-2xl shadow-2xl mx-4">
+            <div class="text-center mb-8">
+                <div class="bg-indigo-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                    <i data-lucide="wallet" class="text-white w-8 h-8"></i>
+                </div>
+                <h1 class="text-2xl font-bold">Expense Tracker</h1>
+                <p class="text-slate-500">Sign in to access live data</p>
+            </div>
+            <form id="login-form" class="space-y-4">
+                <input type="text" id="username" value="admin" class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                <input type="password" id="password" value="password123" class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 shadow-lg active:scale-95 transition-all">Connect Portal</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- LOADING OVERLAY -->
+    <div id="loading-overlay" class="hidden fixed inset-0 z-[60] flex flex-col items-center justify-center bg-white/80 backdrop-blur-md">
+        <div class="loader ease-linear rounded-full border-4 border-t-4 border-slate-200 h-12 w-12 mb-4"></div>
+        <p class="text-indigo-600 font-bold animate-pulse">Syncing with Google Sheets...</p>
+    </div>
+
+    <!-- MAIN APP VIEW -->
+    <div id="app-view" class="hidden min-h-screen">
+        <!-- Navbar -->
+        <nav class="bg-white px-6 py-4 flex justify-between items-center border-b border-slate-200">
+            <div class="flex items-center gap-2">
+                <div class="bg-indigo-600 p-1.5 rounded-lg"><i data-lucide="layout-grid" class="text-white w-5 h-5"></i></div>
+                <h1 class="text-lg font-bold tracking-tight">Financial Dashboard</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="bg-slate-100 px-4 py-1.5 rounded-full text-xs font-bold text-slate-500" id="user-display">👤 ADMIN</div>
+                <button id="logout-btn" class="text-xs font-bold text-rose-500 uppercase tracking-widest hover:bg-rose-50 px-3 py-1.5 rounded-lg transition-all">Logout</button>
+            </div>
+        </nav>
+
+        <!-- STICKY FILTER BAR -->
+        <section class="sticky-bar bg-white/95 backdrop-blur-md px-6 py-6 shadow-sm">
+            <div class="max-w-[1600px] mx-auto grid grid-cols-1 md:grid-cols-4 xl:grid-cols-8 gap-4">
+                <!-- Mode Switch -->
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date Mode</label>
+                    <select id="date-mode" class="text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-indigo-500">
+                        <option value="range">Range (From-To)</option>
+                        <option value="single">Single Date</option>
+                    </select>
+                </div>
+
+                <!-- Single Date Dropdown -->
+                <div id="box-single" class="hidden flex flex-col gap-1.5">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Specific Date</label>
+                    <select id="f-single" class="text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-indigo-500">
+                        <option value="All">All Dates</option>
+                    </select>
+                </div>
+
+                <!-- Range Dropdowns -->
+                <div id="box-from" class="flex flex-col gap-1.5">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">From</label>
+                    <select id="f-from" class="text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-indigo-500">
+                        <option value="All">Earliest</option>
+                    </select>
+                </div>
+                <div id="box-to" class="flex flex-col gap-1.5">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">To</label>
+                    <select id="f-to" class="text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-indigo-500">
+                        <option value="All">Latest</option>
+                    </select>
+                </div>
+
+                <!-- Transaction -->
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Transaction</label>
+                    <select id="f-trans" class="text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-indigo-500">
+                        <option value="All">All Transactions</option>
+                    </select>
+                </div>
+
+                <!-- Category -->
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Category</label>
+                    <select id="f-cat" class="text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-indigo-500">
+                        <option value="All">All Categories</option>
+                    </select>
+                </div>
+
+                <!-- Type -->
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Type</label>
+                    <select id="f-type" class="text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-indigo-500">
+                        <option value="All">All Types</option>
+                    </select>
+                </div>
+
+                <!-- Reset -->
+                <div class="flex items-end">
+                    <button id="reset-btn" class="w-full bg-slate-900 text-white font-bold py-2 rounded-lg text-xs uppercase tracking-widest hover:bg-indigo-600 transition-all">Reset</button>
+                </div>
+            </div>
+        </section>
+
+        <main class="max-w-[1600px] mx-auto p-6 space-y-8">
+            <!-- KPI CARDS -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="glass-card p-6 border-l-4 border-rose-500 shadow-sm">
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Expense</p>
+                    <h3 id="kpi-exp" class="text-2xl font-bold text-slate-900">AED 0.00</h3>
+                </div>
+                <div class="glass-card p-6 border-l-4 border-emerald-500 shadow-sm">
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Credit</p>
+                    <h3 id="kpi-crd" class="text-2xl font-bold text-slate-900">AED 0.00</h3>
+                </div>
+                <div class="glass-card p-6 border-l-4 border-indigo-500 shadow-sm">
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Amount</p>
+                    <h3 id="kpi-vol" class="text-2xl font-bold text-slate-900">AED 0.00</h3>
+                </div>
+                <div class="glass-card p-6 shadow-sm flex flex-col justify-center">
+                    <div class="flex justify-between text-[10px] font-bold mb-2">
+                        <span class="text-rose-500" id="lbl-exp-pct">EXP: 0%</span>
+                        <span class="text-emerald-500" id="lbl-crd-pct">CRD: 0%</span>
+                    </div>
+                    <div class="flex h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div id="bar-exp" class="bg-rose-500 transition-all duration-500" style="width: 0%"></div>
+                        <div id="bar-crd" class="bg-emerald-500 transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISUALIZATIONS -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="glass-card p-6">
+                    <h4 class="text-xs font-bold uppercase text-slate-500 mb-6">Expense By Category (Amount)</h4>
+                    <div id="chart-exp-amt" class="chart-container"></div>
+                </div>
+                <div class="glass-card p-6">
+                    <h4 class="text-xs font-bold uppercase text-slate-500 mb-6">Expense Contribution (%)</h4>
+                    <div id="chart-exp-pct" class="chart-container"></div>
+                </div>
+                <div class="glass-card p-6">
+                    <h4 class="text-xs font-bold uppercase text-slate-500 mb-6">Credit By Category (Amount)</h4>
+                    <div id="chart-crd-amt" class="chart-container"></div>
+                </div>
+                <div class="glass-card p-6">
+                    <h4 class="text-xs font-bold uppercase text-slate-500 mb-6">Credit Contribution (%)</h4>
+                    <div id="chart-crd-pct" class="chart-container"></div>
+                </div>
+            </div>
+
+            <!-- TABLE -->
+            <div class="glass-card overflow-hidden shadow-sm">
+                <div class="px-6 py-4 bg-slate-50/50 border-b border-slate-200">
+                    <h4 class="text-sm font-bold text-slate-700">Detailed Transaction Log</h4>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-50 text-[10px] uppercase font-bold text-slate-400">
+                            <tr>
+                                <th class="px-6 py-4">Date</th>
+                                <th class="px-6 py-4">Transaction</th>
+                                <th class="px-6 py-4">Category</th>
+                                <th class="px-6 py-4">Type</th>
+                                <th class="px-6 py-4">Location</th>
+                                <th class="px-6 py-4 text-right">Amount (AED)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body" class="divide-y divide-slate-100 text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSCLTgSyBqiGOlMQjBSEAuGcT4IpZLROsLK89G3q6GSPF4ZuG5XXsl5dCzBiSgVVeOtNlMj6Jq71_Z7/pub?output=csv';
+
+        let state = {
+            master: [],
+            filtered: [],
+            charts: {},
+            filters: { mode: 'range', single: 'All', from: 'All', to: 'All', trans: 'All', cat: 'All', type: 'All' }
+        };
+
+        /** 1. FETCH & PARSE DATA **/
+        async function fetchLiveSheet() {
+            document.getElementById('loading-overlay').classList.remove('hidden');
+            try {
+                const response = await fetch(CSV_URL);
+                const text = await response.text();
+                processCSV(text);
+            } catch (err) {
+                alert("Critical Error: Unable to fetch data from the provided Sheet URL.");
+            } finally {
+                document.getElementById('loading-overlay').classList.add('hidden');
+            }
+        }
+
+        function processCSV(csv) {
+            const lines = csv.split('\n').filter(l => l.trim() !== '');
+            state.master = lines.slice(1).map(row => {
+                // regex for CSV columns that might contain commas inside quotes
+                const cols = row.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
+                const clean = (s) => s ? s.replace(/"/g, '').trim() : '';
+
+                const dateStr = clean(cols[0]);
+                const dp = dateStr.split('/');
+                const dateObj = new Date(dp[2], dp[1] - 1, dp[0]);
+
+                return {
+                    date: dateStr,
+                    dateObj: dateObj,
+                    transaction: clean(cols[1]),
+                    type: clean(cols[2]),
+                    location: clean(cols[3]),
+                    category: clean(cols[4]),
+                    amount: parseFloat(clean(cols[5])) || 0
+                };
+            }).filter(d => d.date !== "");
+
+            // Sort Master chronologically
+            state.master.sort((a,b) => a.dateObj - b.dateObj);
+            
+            initUI();
+        }
+
+        /** 2. DASHBOARD INITIALIZATION **/
+        function initUI() {
+            lucide.createIcons();
+            populateFilters();
+            initCharts();
+            applyFilters();
+        }
+
+        function populateFilters() {
+            const dates = [...new Set(state.master.map(d => d.date))];
+            const trans = [...new Set(state.master.map(d => d.transaction))].sort();
+            const cats = [...new Set(state.master.map(d => d.category))].sort();
+            const types = [...new Set(state.master.map(d => d.type))].sort();
+
+            const setup = (id, list, placeholder) => {
+                const el = document.getElementById(id);
+                el.innerHTML = `<option value="All">${placeholder}</option>`;
+                list.forEach(val => {
+                    const opt = document.createElement('option');
+                    opt.value = val; opt.innerText = val;
+                    el.appendChild(opt);
+                });
+            };
+
+            setup('f-single', dates, "All Dates");
+            setup('f-from', dates, "Earliest");
+            setup('f-to', [...dates].reverse(), "Latest");
+            setup('f-trans', trans, "All Transactions");
+            setup('f-cat', cats, "All Categories");
+            setup('f-type', types, "All Types");
+        }
+
+        /** 3. CORE FILTER & UI UPDATE **/
+        function applyFilters() {
+            const f = state.filters;
+            state.filtered = state.master.filter(d => {
+                const matchTrans = f.trans === 'All' || d.transaction === f.trans;
+                const matchCat = f.cat === 'All' || d.category === f.cat;
+                const matchType = f.type === 'All' || d.type === f.type;
+
+                let matchDate = true;
+                if (f.mode === 'single') {
+                    matchDate = f.single === 'All' || d.date === f.single;
+                } else {
+                    const start = f.from === 'All' ? new Date(2000,0,1) : state.master.find(x => x.date === f.from).dateObj;
+                    const end = f.to === 'All' ? new Date(2100,0,1) : state.master.find(x => x.date === f.to).dateObj;
+                    matchDate = d.dateObj >= start && d.dateObj <= end;
+                }
+
+                return matchTrans && matchCat && matchType && matchDate;
+            });
+
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            // Metrics
+            const exp = state.filtered.filter(d => d.type.includes('Debit')).reduce((a,b) => a + b.amount, 0);
+            const crd = state.filtered.filter(d => d.type.includes('Credit')).reduce((a,b) => a + b.amount, 0);
+            const total = exp + crd;
+
+            document.getElementById('kpi-exp').innerText = `AED ${exp.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+            document.getElementById('kpi-crd').innerText = `AED ${crd.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+            document.getElementById('kpi-vol').innerText = `AED ${total.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+
+            const expPct = total === 0 ? 0 : (exp/total)*100;
+            const crdPct = total === 0 ? 0 : (crd/total)*100;
+
+            document.getElementById('bar-exp').style.width = expPct + '%';
+            document.getElementById('bar-crd').style.width = crdPct + '%';
+            document.getElementById('lbl-exp-pct').innerText = `EXP: ${expPct.toFixed(1)}%`;
+            document.getElementById('lbl-crd-pct').innerText = `CRD: ${crdPct.toFixed(1)}%`;
+
+            // Table
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = state.filtered.map(d => `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-6 py-4 text-slate-500">${d.date}</td>
+                    <td class="px-6 py-4 font-bold text-slate-800">${d.transaction}</td>
+                    <td class="px-6 py-4 text-slate-500">${d.category}</td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${d.type.includes('Credit') ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
+                            ${d.type}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-slate-400">${d.location}</td>
+                    <td class="px-6 py-4 text-right font-bold ${d.type.includes('Credit') ? 'text-emerald-600' : 'text-slate-900'}">
+                        ${d.amount.toLocaleString(undefined, {minimumFractionDigits:2})}
+                    </td>
+                </tr>
+            `).join('');
+
+            updateCharts(exp, crd);
+        }
+
+        /** 4. ECHARTS ENGINE **/
+        function initCharts() {
+            state.charts.eAmt = echarts.init(document.getElementById('chart-exp-amt'));
+            state.charts.ePct = echarts.init(document.getElementById('chart-exp-pct'));
+            state.charts.cAmt = echarts.init(document.getElementById('chart-crd-amt'));
+            state.charts.cPct = echarts.init(document.getElementById('chart-crd-pct'));
+            window.addEventListener('resize', () => Object.values(state.charts).forEach(c => c.resize()));
+        }
+
+        function updateCharts(tExp, tCrd) {
+            const aggregate = (type) => {
+                const map = {};
+                state.filtered.filter(d => d.type.includes(type)).forEach(d => {
+                    map[d.category] = (map[d.category] || 0) + d.amount;
+                });
+                return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
+            };
+
+            const expData = aggregate('Debit');
+            const crdData = aggregate('Credit');
+
+            const option = (data, color, isPct, total) => ({
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                grid: { left: '3%', right: '18%', bottom: '3%', containLabel: true },
+                xAxis: { type: 'value', splitLine: { show: false }, axisLabel: { show: false } },
+                yAxis: { type: 'category', data: data.map(d => d.name), inverse: true, axisLine: { show: false } },
+                series: [{
+                    type: 'bar',
+                    data: data.map(d => isPct ? (d.value/total * 100).toFixed(1) : d.value),
+                    itemStyle: { color: color, borderRadius: [0, 8, 8, 0] },
+                    label: { show: true, position: 'right', formatter: isPct ? '{c}%' : 'AED {c}' }
+                }]
+            });
+
+            state.charts.eAmt.setOption(option(expData, '#f43f5e', false));
+            state.charts.ePct.setOption(option(expData, '#fb7185', true, tExp));
+            state.charts.cAmt.setOption(option(crdData, '#10b981', false));
+            state.charts.cPct.setOption(option(crdData, '#34d399', true, tCrd));
+        }
+
+        /** 5. EVENT LISTENERS **/
+        document.getElementById('date-mode').addEventListener('change', (e) => {
+            state.filters.mode = e.target.value;
+            const single = e.target.value === 'single';
+            document.getElementById('box-single').classList.toggle('hidden', !single);
+            document.getElementById('box-from').classList.toggle('hidden', single);
+            document.getElementById('box-to').classList.toggle('hidden', single);
+            applyFilters();
+        });
+
+        const bindSelect = (id, key) => {
+            document.getElementById(id).addEventListener('change', (e) => {
+                state.filters[key] = e.target.value;
+                applyFilters();
+            });
+        };
+
+        bindSelect('f-single', 'single');
+        bindSelect('f-from', 'from');
+        bindSelect('f-to', 'to');
+        bindSelect('f-trans', 'trans');
+        bindSelect('f-cat', 'cat');
+        bindSelect('f-type', 'type');
+
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            state.filters = { mode: 'range', single: 'All', from: 'All', to: 'All', trans: 'All', cat: 'All', type: 'All' };
+            ['date-mode', 'f-single', 'f-from', 'f-to', 'f-trans', 'f-cat', 'f-type'].forEach(id => {
+                document.getElementById(id).value = (id === 'date-mode' ? 'range' : 'All');
+            });
+            document.getElementById('box-single').classList.add('hidden');
+            document.getElementById('box-from').classList.remove('hidden');
+            document.getElementById('box-to').classList.remove('hidden');
+            applyFilters();
+        });
+
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (document.getElementById('username').value === 'admin' && document.getElementById('password').value === 'password123') {
+                sessionStorage.setItem('isAuth', 'true');
+                document.getElementById('login-view').classList.add('hidden');
+                document.getElementById('app-view').classList.remove('hidden');
+                fetchLiveSheet();
+            }
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            sessionStorage.clear();
+            window.location.reload();
+        });
+
+        window.onload = () => {
+            if (sessionStorage.getItem('isAuth')) {
+                document.getElementById('login-view').classList.add('hidden');
+                document.getElementById('app-view').classList.remove('hidden');
+                fetchLiveSheet();
+            }
+        };
+    </script>
+</body>
+</html>
